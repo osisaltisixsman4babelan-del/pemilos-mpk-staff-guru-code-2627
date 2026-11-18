@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PEMILOS GURU & STAFF - SMAN 4 Babelan 2026</title>
+<style>
+:root{--blue:#0051ff}*{box-sizing:border-box;font-family:'Segoe UI',sans-serif}
+body{margin:0;min-height:100vh;background:linear-gradient(rgba(15,23,42,.75),rgba(15,23,42,.75)),url('bg_pemilos.jpeg') no-repeat center center fixed;background-size:cover}
+header{text-align:center;padding:28px;color:#fff}header h1{margin:0;font-size:26px}header p{opacity:.8}
+.container{max-width:1100px;margin:auto;padding:0 16px 50px}
+.auth-box{max-width:460px;margin:20px auto;background:#fff;border-radius:20px;padding:26px;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+.auth-box h2{margin:0 0 6px;font-size:20px;color:#0f172a;text-align:center}
+.auth-box p{margin:0 0 16px;font-size:14px;color:#64748b;text-align:center}
+.section-title{color:#fff;font-size:20px;font-weight:800;margin:30px 0 12px;background:rgba(255,255,255,.1);padding:10px 16px;border-radius:12px;border-left:4px solid var(--blue)}
+.paslon-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}@media(max-width:800px){.paslon-grid{grid-template-columns:1fr}}
+.card{background:#fff;border-radius:18px;overflow:hidden;cursor:pointer;border:3px solid transparent}.card.active{border-color:var(--blue)}
+.card img{width:100%;height:200px;object-fit:cover}.card .info{padding:12px;text-align:center}.info h3{margin:0 0 4px}
+.vote-card{background:#fff;border-radius:20px;padding:22px;margin-top:26px}
+label{font-weight:700;margin:12px 0 6px;display:block}
+select,textarea,input{width:100%;padding:12px;border:1px solid #e2e8f0;border-radius:12px;font-size:15px}
+input[readonly]{background:#f1f5f9;font-weight:700;color:#0f172a}
+button{background:#2563eb;color:#fff;border:0;padding:15px;width:100%;border-radius:12px;font-weight:800;font-size:18px;margin-top:18px;cursor:pointer}
+button:disabled{background:#94a3b8}#status,#authStatus{text-align:center;margin-top:12px;font-weight:800}.success{color:#16a34a}.error{color:#dc2626}
+</style></head><body>
+<header><h1>🗳️ PEMILOS SMAN 4 BABELAN 2026</h1><p>OSIS & MPK - GURU & STAFF</p></header>
+<div class="container">
+  <div id="loading" style="color:#fff;text-align:center;padding:40px">Memuat data Guru & Staff... ⏳</div>
+
+  <!-- GERBANG VERIFIKASI KODE -->
+  <div id="authGate" class="auth-box" style="display:none">
+    <h2>🔒 Verifikasi Pemilih</h2>
+    <p>Pilih kategori, nama Anda, dan masukkan kode akses unik untuk masuk ke bilik suara.</p>
+    <label>1. Kategori</label><select id="kelompok"></select>
+    <label>2. Nama Anda</label><select id="nama"></select>
+    <label>3. Kode Akses</label><input id="inputCode" type="text" placeholder="Masukkan 6 digit kode unik" style="text-transform:uppercase;letter-spacing:2px;font-weight:700">
+    <button onclick="verifikasiMasuk()">MASUK BILIK SUARA 🔑</button>
+    <div id="authStatus"></div>
+  </div>
+
+  <!-- HALAMAN VOTING (TERKUNCI SEBELUM KODE BENAR) -->
+  <div id="main" style="display:none">
+    <div class="section-title">🔵 PILIH KETUA OSIS</div><div class="paslon-grid" id="gridOSIS"></div>
+    <div class="section-title">🟢 PILIH KETUA MPK</div><div class="paslon-grid" id="gridMPK"></div>
+    <div class="vote-card">
+      <label>1. Kategori</label><input id="viewKelompok" readonly>
+      <label>2. Nama Pemilih</label><input id="viewNama" readonly>
+      <label>3. Pilihan OSIS</label><input id="pilOSIS" readonly placeholder="Klik foto OSIS di atas">
+      <label>4. Pilihan MPK</label><input id="pilMPK" readonly placeholder="Klik foto MPK di atas">
+      <label>5. Harapan / Pesan</label><textarea id="isi" rows="2"></textarea>
+      <button onclick="kirim()" id="btn">KIRIM VOTE 🚀</button><div id="status"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = "https://script.google.com/macros/s/AKfycbx7NkbXK0r3vSSvr8dhnce6VgfEUE2n8tXuuBTr7om063hSm9GnnCbzi-APpJMCeeOa/exec"; // Ganti dengan URL Web App dari Apps Script Google Sheets kamu
+const NAMA_WEB = "WEB GURU & STAFF";
+const CONFIG = {
+  OSIS: [
+    { id:"PASLON 1 OSIS", nama:"Chaesar Wira Pamungkas & Agreat Paulin Daniel", foto:"PASLON 01.jpeg" },
+    { id:"PASLON 2 OSIS", nama:"Aliana Anggela Komba & Rasyha Al-Farizzy A.", foto:"PASLON 02.jpeg" },
+    { id:"PASLON 3 OSIS", nama:"Dani Akmal Alfarizi & Athifa Gita Savitri", foto:"PASLON 03.jpeg" }
+  ],
+  MPK: [
+    { id:"PASLON 1 MPK", nama:"Lili Mahidra Satya Putra & Anggita Fitriyani", foto:"PASLON 01 MPK.JPG" },
+    { id:"PASLON 2 MPK", nama:"Frida Sarah Razak & Amanda Tatia Salsabila", foto:"PASLON 02 MPK.JPG" },
+    { id:"PASLON 3 MPK", nama:"Fadli Suryadinigrat & Citra Insan Camelia", foto:"PASLON O3 MPK.JPG" }
+  ]
+};
+let DATA={}, SUDAH_VOTE=[], CODES={}, VERIFIED_CODE="";
+
+function renderPaslon(){
+  const gO=document.getElementById('gridOSIS'), gM=document.getElementById('gridMPK');
+  gO.innerHTML=''; gM.innerHTML='';
+  CONFIG.OSIS.forEach(p=>gO.innerHTML+=`<div class="card" id="c-${p.id}" onclick="pilih('OSIS','${p.id}')"><img src="${p.foto}"><div class="info"><h3>${p.id}</h3><small>${p.nama}</small></div></div>`);
+  CONFIG.MPK.forEach(p=>gM.innerHTML+=`<div class="card" id="c-${p.id}" onclick="pilih('MPK','${p.id}')"><img src="${p.foto}"><div class="info"><h3>${p.id}</h3><small>${p.nama}</small></div></div>`);
+}
+function pilih(tipe,id){
+  if(tipe==='OSIS'){document.getElementById('pilOSIS').value=id;CONFIG.OSIS.forEach(p=>document.getElementById('c-'+p.id).classList.remove('active'));}
+  else{document.getElementById('pilMPK').value=id;CONFIG.MPK.forEach(p=>document.getElementById('c-'+p.id).classList.remove('active'));}
+  document.getElementById('c-'+id).classList.add('active');
+}
+
+// --- GURU & STAFF ---
+function getKeys(){ 
+  return Object.keys(DATA).filter(k=>{
+    const ku=k.toUpperCase();
+    // Menangkap kategori GURU, STAFF SEKOLAH, STAF, TU, KARYAWAN
+    return ku.includes('GURU') || ku.includes('STAFF') || ku.includes('STAF') || ku.includes('TU') || ku.includes('KARYAWAN');
+  }).sort(); 
+}
+
+function isiDropdownKelompok(){
+  const selK=document.getElementById('kelompok'); 
+  const keys=getKeys();
+  if(keys.length===0){ 
+    selK.innerHTML='<option value="">Data GURU & STAFF belum ada di Sheets</option>'; 
+    upd(); 
+    return; 
+  }
+  selK.innerHTML='<option value="__SEMUA__">SEMUA GURU & STAFF</option>';
+  keys.forEach(k=>selK.innerHTML+=`<option value="${k}">${k}</option>`); 
+  upd();
+}
+
+function upd(){
+  const k=document.getElementById('kelompok').value, sN=document.getElementById('nama');
+  sN.innerHTML='<option value="">-- Pilih Nama --</option>'; 
+  let daftar=[];
+  if(k==='__SEMUA__'){ 
+    getKeys().forEach(key=>{ if(DATA[key]) daftar=daftar.concat(DATA[key]); }); 
+  }
+  else if(k && DATA[k]){ 
+    daftar=DATA[k]; 
+  }
+  [...new Set(daftar.map(n=>n.trim()))].sort().forEach(n=>{
+    const sudah=SUDAH_VOTE.includes(n);
+    sN.innerHTML+= sudah ? `<option disabled>❌ ${n} (Sudah Memilih)</option>` : `<option value="${n}">${n}</option>`;
+  });
+}
+
+function verifikasiMasuk(){
+  const kelompokRaw = document.getElementById('kelompok').value;
+  const nama = document.getElementById('nama').value.trim();
+  const kode = document.getElementById('inputCode').value.trim().toUpperCase();
+  const authStatus = document.getElementById('authStatus');
+
+  if(!kelompokRaw || !nama || !kode){
+    authStatus.innerHTML = '<span class="error">Pilih kategori, nama, dan masukkan kode akses!</span>';
+    return;
+  }
+  if(SUDAH_VOTE.includes(nama)){
+    authStatus.innerHTML = '<span class="error">Nama ini sudah melakukan voting!</span>';
+    return;
+  }
+  if(!CODES[nama] || CODES[nama].toUpperCase() !== kode){
+    authStatus.innerHTML = '<span class="error">❌ Kode akses salah / tidak sesuai dengan nama!</span>';
+    return;
+  }
+
+  // Lolos verifikasi -> buka bilik suara & kunci identitas
+  VERIFIED_CODE = kode;
+  document.getElementById('viewKelompok').value = kelompokRaw === '__SEMUA__' ? 'GURU & STAFF' : kelompokRaw;
+  document.getElementById('viewNama').value = nama;
+  document.getElementById('authGate').style.display = 'none';
+  document.getElementById('main').style.display = 'block';
+}
+
+async function load(){
+  try {
+    const r=await fetch(API); 
+    const res=await r.json();
+    DATA=res.pemilih||{};
+    CODES=res.codes||{};
+    if(res.sudah) SUDAH_VOTE=res.sudah.map(n=>n.trim());
+    
+    document.getElementById('loading').style.display='none';
+    document.getElementById('authGate').style.display='block';
+    document.getElementById('kelompok').onchange=upd;
+    renderPaslon(); 
+    isiDropdownKelompok();
+  } catch (err) {
+    document.getElementById('loading').innerHTML = '<span class="error">Gagal memuat data dari server. Periksa URL API!</span>';
+  }
+}
+
+async function kirim(){
+  const nama=document.getElementById('viewNama').value.trim(),
+  kelompok=document.getElementById('viewKelompok').value.trim(),
+  pilOSIS=document.getElementById('pilOSIS').value, pilMPK=document.getElementById('pilMPK').value,
+  isi=document.getElementById('isi').value, status=document.getElementById('status'), btn=document.getElementById('btn');
+  
+  if(!nama||!pilOSIS||!pilMPK){status.innerHTML='<span class="error">Pilih paslon OSIS dan MPK terlebih dahulu!</span>';return;}
+  if(SUDAH_VOTE.includes(nama)){status.innerHTML='<span class="error">Sudah Memilih!</span>';return;}
+  
+  btn.disabled=true; btn.innerText='Mengirim...';
+  const pilihan=`OSIS:${pilOSIS} | MPK:${pilMPK}`;
+  
+  try {
+    const response=await fetch(API,{
+      method:'POST',
+      body:new URLSearchParams({nama,kelompok,pilihan,isi,website:NAMA_WEB,code:VERIFIED_CODE})
+    });
+    const result=await response.json();
+    
+    if(result.status==='success'){
+      SUDAH_VOTE.push(nama);
+      status.innerHTML=`<span class="success">✅ Berhasil ${nama}! Terima kasih.</span>`;
+      setTimeout(()=>{
+        upd();
+        document.getElementById('pilOSIS').value='';
+        document.getElementById('pilMPK').value='';
+        document.getElementById('isi').value='';
+        document.getElementById('inputCode').value='';
+        status.innerHTML='';
+        btn.disabled=false;
+        btn.innerText='KIRIM VOTE 🚀';
+        // Kembali ke gerbang verifikasi untuk pemilih berikutnya
+        document.getElementById('main').style.display='none';
+        document.getElementById('authGate').style.display='block';
+      },2000);
+    } else {
+      status.innerHTML=`<span class="error">Gagal: ${result.message}</span>`;
+      btn.disabled=false;
+      btn.innerText='KIRIM VOTE 🚀';
+    }
+  } catch (err) {
+    status.innerHTML=`<span class="error">Terjadi kesalahan jaringan!</span>`;
+    btn.disabled=false;
+    btn.innerText='KIRIM VOTE 🚀';
+  }
+}
+
+load();
+</script></body></html>
